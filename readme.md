@@ -52,10 +52,9 @@ $Metex.Close()
 ```
 
 ## Project 2: An adapter to connect a multimeter by a UART to USB Converter (CB2102) to a PC
-The Kicad project is a simple convert to connect to M3850D to a TTL UART to USB Converter
+The Kicad project is a simple converte to connect a M3850D by a TTL UART to USB Converter to PC.
 
-The Serial port of the Multimeter:
-
+The Description of the Serial port pins of the Multimeter:
  
 RxD and TxD Ports are MAX232 compatible. Means -12V = High and +12V is Low Level. 
 
