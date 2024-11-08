@@ -51,7 +51,7 @@ Close the COM Port
 $Metex.Close()
 ```
 
-## Project 2: An adapter to connect to multimeter by a UART to USB Converter (CB2102)
+## Project 2: An adapter to connect a multimeter by a UART to USB Converter (CB2102) to a PC
 The Kicad project is a simple convert to connect to M3850D to a TTL UART to USB Converter
 
 The Serial port of the Multimeter:
