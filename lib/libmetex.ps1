@@ -122,7 +122,8 @@ class MetexM3850D
 	hidden [System.IO.Ports.StopBits]$_Stopbits=[System.IO.Ports.StopBits]::Two
 	hidden [System.IO.Ports.Handshake]$_Handshake=[System.IO.Ports.Handshake]::None
 	
-	hidden [int]$MaxTimeToReadIn100ms=10
+	hidden [int]$MaxTimeToReadIn100ms=30
+	hidden [int]$ReadTimeIn100ms=0
 	hidden [int]$MustBytesInQueue=14
 
     hidden [Measure]$_Measure=$null
@@ -135,6 +136,7 @@ class MetexM3850D
 	MetexM3850D([string]$COMPort)
 	{
 		$this._COMPort=$COMPort
+		$this._Measure=new-object Measure
 		if(!([System.IO.Ports.SerialPort]::GetPortNames() -contains $this._COMPort))
 		{
 			write-warning ("Selected COM Port {0} does not exists! Available Ports: {1}" -f $this._COMPort,([String]::Join(",",[System.IO.Ports.SerialPort]::GetPortNames())))
@@ -145,6 +147,7 @@ class MetexM3850D
 		$this.RegExSplitOffMeasureUnit=New-Object System.Text.RegularExpressions.Regex([MetexM3850D]::SplitOffMeasureUnitregEx)
 		try
 		{
+			# $this._Measure=new-object Measure
 			$this.COMPort=new-object System.IO.Ports.SerialPort
 			$this.COMPort.BaudRate=$this._BaudRate
 			$this.COMPort.DataBits=$this._DataBits
@@ -153,7 +156,6 @@ class MetexM3850D
 			$this.COMPort.Stopbits=$this._Stopbits
 			$this.COMPort.Handshake=$this._Handshake			
 			$this.COMPort.Open()
-			$this._Measure=new-object Measure
 			return $this.COMPort 
 		}	
 		catch
@@ -194,29 +196,34 @@ class MetexM3850D
 		}
 		$this.COMPort.Write("D")
 		$iBytesInQueue=0
+		$this.ReadTimeIn100ms=$this.MaxTimeToReadIn100ms
 		# Read Serial
 		do{
 		    $iBytesInQueue=$this.COMPort.BytesToRead
-		    $this.MaxTimeToReadIn100ms--
+		    $this.ReadTimeIn100ms--
 		    #write-host  "." -nonewline
 		    Start-Sleep -Milliseconds 100
 		}
-		while($this.MaxTimeToReadIn100ms -gt 0 -and $iBytesInQueue -lt $this.MustBytesInQueue)
+		while($this.ReadTimeIn100ms -gt 0 -and $iBytesInQueue -lt $this.MustBytesInQueue)
 		# Timeout occured?
-		if($this.MaxTimeToReadIn100ms -eq 0)
+		if($this.ReadTimeIn100ms -eq 0)
 		{
 			$this._Measure.MeasuringUnit=[MeasuringUnit]::Undefined
 			$this._Measure.Value=0
 			$this._Measure.RawMeasureString="Timeout occured!"
-			$this._Measure.Result=[MeasureResult]::TimeOut			
+			$this._Measure.Result=[MeasureResult]::TimeOut	
+			$this._Measure.RawValue=""
+			$this.COMPort.DiscardInBuffer()			
 		}
 		# Byte count incorrect?
 		elseif($iBytesInQueue -ne 14)
 		{
 			$this._Measure.MeasuringUnit=[MeasuringUnit]::Undefined
 			$this._Measure.Value=0
-			$this._Measure.RawMeasureString="Invalid character count!"
+			$this._Measure.RawMeasureString="Invalid character count: {0}!" -f $iBytesInQueue
 			$this._Measure.Result=[MeasureResult]::InvalidResponseLength				
+			$this._Measure.RawValue=""
+			$this.COMPort.DiscardInBuffer()
 		}
 		#  Read OK
 		else
@@ -299,11 +306,13 @@ class MetexM3850D
 				if($ValueRaw -eq "OL" -or $ValueRaw -eq "O.L")
 				{
 					$this._Measure.Value=0
+					$this._Measure.RawMeasureString="Measure Overload"
 					$this._Measure.Result=[MeasureResult]::Overload
 				}
 				else
 				{
 					$this._Measure.Value=[System.Convert]::ToSingle($ValueRaw.Replace(".",","))
+					$this._Measure.Result=[MeasureResult]::OK
 				}	
 			}
 			catch
@@ -319,8 +328,9 @@ class MetexM3850D
 		return $this._Measure
 	}
 }
-
+# Usage
+# . .\libmetex.ps1  or . D:\temp\libmetex.ps1
 # $Metex=new-object MetexM3850D("COM5")
-# $Metex.Open() | out-null
+# $SerialPort=$Metex.Open() | out-null
 # $Metex.ReadMeasureSynchron()
 # $Metex.Close()
